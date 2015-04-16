@@ -65,6 +65,7 @@ passport.use(new InstagramStrategy({
   function(accessToken, refreshToken, profile, done) {
     // asynchronous verification, for effect...
     models.User.findOrCreate({
+      "site": "instagram",
       "name": profile.username,
       "id": profile.id,
       "access_token": accessToken 
@@ -91,9 +92,22 @@ passport.use(new FacebookStrategy({
     callbackURL: FACEBOOK_CALLBACK_URL
   },
   function(accessToken, refreshToken, profile, done) {
-    User.findOrCreate(..., function(err, user) {
-      if (err) { return done(err); }
-      done(null, user);
+    models.User.findOrCreate({
+      "site": "facebook",
+      "name": profile.name,
+      "id": profile.id,
+      "access_token": accessToken
+    }, function(err, user, created) {
+      models.User.findOrCreate({}, function(err, user, created) {
+        // created will be false here
+        process.nextTick(function () {
+          // To keep the example simple, the user's Instagram profile is returned to
+          // represent the logged-in user.  In a typical application, you would want
+          // to associate the Instagram account with a user record in your database,
+          // and return that user instead.
+          return done(null, profile);
+        });
+      })
     });
   }
 ));
@@ -128,12 +142,26 @@ function ensureAuthenticated(req, res, next) {
 }
 
 //routes
+var Facebook_login_flag = false;
+var Instagram_login_flag = false;
 app.get('/', function(req, res){
-  res.render('login');
+  if (req.isAuthenticated()) { 
+    if (Facebook_login_flag && Instagram_login_flag) {
+      res.render('index'); 
+    } else {
+      res.redirect('/login');
+    }
+  } else {
+    res.redirect('/login');
+  }
 });
 
 app.get('/login', function(req, res){
-  res.render('login', { user: req.user });
+  if (Facebook_login_flag && Instagram_login_flag) {
+    res.redirect('/');
+  } else {
+    res.render('login', { user: req.user });
+  }
 });
 
 app.get('/account', ensureAuthenticated, function(req, res){
@@ -170,11 +198,10 @@ app.get('/photos', ensureAuthenticated, function(req, res){
 //   request.  The first step in Instagram authentication will involve
 //   redirecting the user to instagram.com.  After authorization, Instagram
 //   will redirect the user back to this application at /auth/instagram/callback
-app.get('/auth/instagram',
-  passport.authenticate('instagram'),
-  function(req, res){
-    // The request will be redirected to Instagram for authentication, so this
-    // function will not be called.
+app.get('/auth/instagram',passport.authenticate('instagram'),
+  function(req,res){
+    Instagram_login_flag = true;
+    res.redirect('/');
   });
 
 // GET /auth/instagram/callback
@@ -184,18 +211,30 @@ app.get('/auth/instagram',
 //   which, in this example, will redirect the user to the home page.
 app.get('/auth/instagram/callback', 
   passport.authenticate('instagram', { failureRedirect: '/login'}),
-  function(req, res) {
-    res.redirect('/account');
+    function(req,res){
+      Instagram_login_flag = true;
+      res.redirect('/');
+    });
+
+app.get('/auth/facebook', passport.authenticate('facebook'),
+  function(req,res){
+    Facebook_login_flag = true;
+    res.redirect('/');
   });
 
-app.get('/auth/facebook', passport.authenticate('facebook'));
-
 app.get('/auth/facebook/callback', 
-  passport.authenticate('facebook', { successRedirect: '/',
-                                      failureRedirect: '/login' }));
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+    function(req,res){
+      Facebook_login_flag = true;
+      res.redirect('/');
+    });
 
 app.get('/logout', function(req, res){
   req.logout();
+  req.session.destroy();
+  delete req.session;
+  Facebook_login_flag = false;
+  Instagram_login_flag = false;
   res.redirect('/');
 });
 
