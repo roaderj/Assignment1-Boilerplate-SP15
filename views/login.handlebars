@@ -6,20 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link href="css/bootstrap.min.css" rel="stylesheet">
 	<link href="css/bootstrap-theme.min.css" rel="stylesheet">
+  <link href="css/assignment.css" rel="stylesheet">
 </head>
 
 <body>
 	<div class='container'>
-    <div name='instagram_login' style="position:fixed;top:40%;left:50%;margin-left:-100px;">
-      <a href="/auth/instagram">
-      <img src="picture/Instagram_signin.png" alt="Login with Instagram" style="width:200px">
-      </a>
-    </div>
-    <div name='facebook_login' style="position:fixed;top:50%;left:50%;margin-left:-100px;">
-      <a href="/auth/facebook">
-      <img src="picture/Facebook_signin.png" alt="Login with Facebook" style="width:200px">
-      </a> 
-    </div>
+      <div style="position:fixed;top:40%;left:50%;width:400px;height:250px;margin-top:-75px;margin-left:-225px;background-color:#222222;opacity: 0.8">
+      </div>
+      <div name='loginBtn' style="position:fixed;top:40%;left:50%;margin-left:-100px;">
+        <h2 style="text-align:center;color:white;margin-top:-50px;margin-left:-90px">Your Soical Media Liked</h2>
+        <br><br>
+        <button class="btn btn-default" id="instagramBtn">Login with Instagram</button>
+        <br><br>
+        <button class="btn btn-default" id="facebookBtn">Login with Facebook</button>
+      </div>
   </div>
   <script src="https://code.jquery.com/jquery.js"></script>
   <script src="js/bootstrap.min.js"></script>

@@ -64,6 +64,14 @@ passport.use(new InstagramStrategy({
   },
   function(accessToken, refreshToken, profile, done) {
     // asynchronous verification, for effect...
+    models.User
+        .find({"site":"instagram"})
+        .remove()
+        .exec(function(err){
+          if (err) { 
+            console.log(err); 
+          }
+        });
     models.User.findOrCreate({
       "site": "instagram",
       "name": profile.username,
@@ -92,6 +100,14 @@ passport.use(new FacebookStrategy({
     callbackURL: FACEBOOK_CALLBACK_URL
   },
   function(accessToken, refreshToken, profile, done) {
+    models.User
+        .find({"site":"facebook"})
+        .remove()
+        .exec(function(err){
+          if (err) { 
+            console.log(err); 
+          }
+        });
     models.User.findOrCreate({
       "site": "facebook",
       "name": profile.name,
@@ -142,22 +158,12 @@ function ensureAuthenticated(req, res, next) {
 }
 
 //routes
-var Facebook_login_flag = false;
-var Instagram_login_flag = false;
-app.get('/', function(req, res){
-  if (req.isAuthenticated()) { 
-    if (Facebook_login_flag && Instagram_login_flag) {
-      res.render('index'); 
-    } else {
-      res.redirect('/login');
-    }
-  } else {
-    res.redirect('/login');
-  }
+app.get('/', ensureAuthenticated, function(req, res){
+  res.render('index');
 });
 
 app.get('/login', function(req, res){
-  if (Facebook_login_flag && Instagram_login_flag) {
+  if (req.isAuthenticated()) {
     res.redirect('/');
   } else {
     res.render('login', { user: req.user });
@@ -168,10 +174,13 @@ app.get('/account', ensureAuthenticated, function(req, res){
   res.render('account', {user: req.user});
 });
 
-app.get('/photos', ensureAuthenticated, function(req, res){
-  var query  = models.User.where({ name: req.user.username });
+app.get('/instagram_photos', ensureAuthenticated, function(req, res){
+  var query  = models.User.find({"site":"instagram"});
+  if (query == []) {
+    res.json(false);
+  }
   query.findOne(function (err, user) {
-    if (err) return handleError(err);
+    if (err) res.json(false);
     if (user) {
       // doc may be null if no document matched
       Instagram.users.liked_by_self({
@@ -185,9 +194,11 @@ app.get('/photos', ensureAuthenticated, function(req, res){
             //insert json object into image array
             return tempJSON;
           });
-          res.render('photos', {photos: imageArr});
+          res.json({photos: imageArr});
         }
       }); 
+    } else {
+      res.json(false);
     }
   });
 });
@@ -200,7 +211,6 @@ app.get('/photos', ensureAuthenticated, function(req, res){
 //   will redirect the user back to this application at /auth/instagram/callback
 app.get('/auth/instagram',passport.authenticate('instagram'),
   function(req,res){
-    Instagram_login_flag = true;
     res.redirect('/');
   });
 
@@ -212,20 +222,17 @@ app.get('/auth/instagram',passport.authenticate('instagram'),
 app.get('/auth/instagram/callback', 
   passport.authenticate('instagram', { failureRedirect: '/login'}),
     function(req,res){
-      Instagram_login_flag = true;
       res.redirect('/');
     });
 
 app.get('/auth/facebook', passport.authenticate('facebook'),
   function(req,res){
-    Facebook_login_flag = true;
     res.redirect('/');
   });
 
 app.get('/auth/facebook/callback', 
   passport.authenticate('facebook', { failureRedirect: '/login' }),
     function(req,res){
-      Facebook_login_flag = true;
       res.redirect('/');
     });
 
@@ -233,9 +240,7 @@ app.get('/logout', function(req, res){
   req.logout();
   req.session.destroy();
   delete req.session;
-  Facebook_login_flag = false;
-  Instagram_login_flag = false;
-  res.redirect('/');
+  res.redirect('/login');
 });
 
 http.createServer(app).listen(app.get('port'), function() {
