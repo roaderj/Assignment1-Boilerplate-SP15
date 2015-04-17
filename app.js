@@ -11,6 +11,7 @@ var session = require('express-session');
 var cookieParser = require('cookie-parser');
 var dotenv = require('dotenv');
 var Instagram = require('instagram-node-lib');
+var graph = require('fbgraph');
 var mongoose = require('mongoose');
 var app = express();
 
@@ -31,6 +32,8 @@ var FACEBOOK_CALLBACK_URL = process.env.FACEBOOK_CALLBACK_URL;
 
 //connect to database
 mongoose.connect(process.env.MONGODB_CONNECTION_URL);
+//mongoose.connect('mongodb://localhost/assignment1');
+
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', function (callback) {
@@ -183,7 +186,8 @@ app.get('/instagram_photos', ensureAuthenticated, function(req, res){
     if (err) res.json(false);
     if (user) {
       // doc may be null if no document matched
-      Instagram.users.liked_by_self({
+      Instagram.users.recent({
+        user_id:user.id,
         access_token: user.access_token,
         complete: function(data) {
           //Map will iterate through the returned data obj
@@ -191,6 +195,7 @@ app.get('/instagram_photos', ensureAuthenticated, function(req, res){
             //create temporary json object
             tempJSON = {};
             tempJSON.url = item.images.low_resolution.url;
+            tempJSON.id = item.id;
             //insert json object into image array
             return tempJSON;
           });
@@ -200,6 +205,48 @@ app.get('/instagram_photos', ensureAuthenticated, function(req, res){
     } else {
       res.json(false);
     }
+  });
+});
+
+app.post('/instagram_like', ensureAuthenticated, function(req,res){
+  var photo = req.body.photo;
+  Instagram.media.likes({
+        media_id:photo,
+        complete: function(data) {
+          res.json(data.length);
+        }
+      });
+});
+
+app.get('/facebook_albums', ensureAuthenticated, function(req, res){
+  var query  = models.User.find({"site":"facebook"});
+  if (query == []) {
+    res.json(false);
+  }
+  query.findOne(function (err, user) {
+    if (err) res.json(false);
+    if (user) {
+      graph.setAccessToken(user.access_token);
+      graph.get('/me/albums', function(err, data) {
+        res.json(data.data);
+      });
+    } else {
+      res.json(false);
+    }
+  });
+});
+
+app.post('/facebook_photo', ensureAuthenticated, function(req, res){
+  var album = req.body.album;
+  graph.get('/'+album+'/photos', function(err, data) {
+        res.json(data.data);
+  });
+});
+
+app.post('/facebook_like', ensureAuthenticated, function(req,res){
+  var photo = req.body.photo;
+  graph.get('/'+photo+'/likes', function(err, data) {
+        res.json(data.data.length);
   });
 });
 
@@ -225,7 +272,7 @@ app.get('/auth/instagram/callback',
       res.redirect('/');
     });
 
-app.get('/auth/facebook', passport.authenticate('facebook'),
+app.get('/auth/facebook', passport.authenticate('facebook',{scope: ['user_photos']}),
   function(req,res){
     res.redirect('/');
   });
